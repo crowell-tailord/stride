@@ -1,0 +1,111 @@
+{
+  "users": [
+    {
+      "id": "usr_owner",
+      "email": "owner@stride.local",
+      "name": "Project Owner",
+      "role": "owner",
+      "passwordHash": "stride2026",
+      "avatarUrl": "",
+      "createdAt": "2026-11-02T15:00:00.000Z"
+    },
+    {
+      "id": "usr_client",
+      "email": "client@stride.local",
+      "name": "Client Partner",
+      "role": "client",
+      "passwordHash": "client2026",
+      "avatarUrl": "",
+      "createdAt": "2026-11-02T15:00:00.000Z"
+    }
+  ],
+  "boards": [
+    {
+      "id": "board_welcome",
+      "title": "Client Project Roadmap",
+      "description": "Private collaborative Kanban board for project tracking, milestones, and deliverables.",
+      "background": "ocean",
+      "isStarred": true,
+      "createdAt": "2026-11-02T15:00:00.000Z",
+      "updatedAt": "2026-11-02T15:00:00.000Z",
+      "allowedUserIds": ["usr_owner", "usr_client"],
+      "customFields": [
+        {
+          "id": "fld_estimate",
+          "boardId": "board_welcome",
+          "name": "Estimate (hrs)",
+          "type": "number",
+          "showOnFront": true
+        },
+        {
+          "id": "fld_client",
+          "boardId": "board_welcome",
+          "name": "Client Lead",
+          "type": "text",
+          "showOnFront": true
+        }
+      ]
+    }
+  ],
+  "lists": [
+    {
+      "id": "list_backlog",
+      "boardId": "board_welcome",
+      "title": "Ideas & Backlog",
+      "position": 1000,
+      "createdAt": "2026-11-02T15:00:00.000Z"
+    },
+    {
+      "id": "list_in_progress",
+      "boardId": "board_welcome",
+      "title": "In Progress",
+      "position": 2000,
+      "createdAt": "2026-11-02T15:00:00.000Z"
+    },
+    {
+      "id": "list_review",
+      "boardId": "board_welcome",
+      "title": "Ready for Review",
+      "position": 3000,
+      "createdAt": "2026-11-02T15:00:00.000Z"
+    },
+    {
+      "id": "list_done",
+      "boardId": "board_welcome",
+      "title": "Completed & Shipped",
+      "position": 4000,
+      "createdAt": "2026-11-02T15:00:00.000Z"
+    }
+  ],
+  "labels": [
+    { "id": "lbl_urgent", "boardId": "board_welcome", "name": "Urgent", "color": "rose" },
+    { "id": "lbl_design", "boardId": "board_welcome", "name": "Design", "color": "indigo" },
+    { "id": "lbl_feature", "boardId": "board_welcome", "name": "Feature", "color": "emerald" },
+    { "id": "lbl_feedback", "boardId": "board_welcome", "name": "Feedback", "color": "amber" }
+  ],
+  "cards": [
+    {
+      "id": "card_welcome",
+      "listId": "list_backlog",
+      "boardId": "board_welcome",
+      "title": "Welcome to Stride! Quick Tour 🚀",
+      "description": "Welcome to your private Trello replacement!",
+      "position": 1000,
+      "isCompleted": false,
+      "priority": "high",
+      "labelIds": ["lbl_feature"],
+      "customFieldValues": {
+        "fld_estimate": 12,
+        "fld_client": "Sarah K."
+      },
+      "checklist": [
+        { "id": "chk_1", "text": "Drag a card to another list", "isDone": true },
+        { "id": "chk_2", "text": "Import an existing Trello board (.json file)", "isDone": false }
+      ],
+      "comments": [],
+      "createdAt": "2026-11-02T15:00:00.000Z",
+      "updatedAt": "2026-11-02T15:00:00.000Z"
+    }
+  ],
+  "automations": []
+}

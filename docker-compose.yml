@@ -1,0 +1,13 @@
+services:
+  stride:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      # Persistent JSON database volume across redeployments
+      - ./data:/app/data

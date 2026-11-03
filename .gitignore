@@ -31,7 +31,21 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env
+.env*.local
+.env.production
+.env.development
+!.env.example
+
+# runtime database & private board data (kept strictly out of git)
+data/*.json
+!data/stride-db.sample.json
+data/*.tmp
+!data/.gitkeep
+
+# user uploaded files (local storage fallback)
+public/uploads/*
+!public/uploads/.gitkeep
 
 # vercel
 .vercel
