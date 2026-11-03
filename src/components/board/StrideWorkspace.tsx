@@ -74,9 +74,21 @@ export default function StrideWorkspace({
   const bgGradient =
     THEME_BACKGROUNDS[currentBoard.background] || THEME_BACKGROUNDS.ocean;
 
+  const bgStyle = currentBoard.backgroundImageUrl
+    ? {
+        backgroundImage: `linear-gradient(rgba(10, 15, 29, 0.35), rgba(10, 15, 29, 0.5)), url("${currentBoard.backgroundImageUrl}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }
+    : undefined;
+
   return (
     <div
-      className={`min-h-screen flex flex-col bg-gradient-to-b ${bgGradient} text-white transition-colors duration-500`}
+      style={bgStyle}
+      className={`min-h-screen flex flex-col ${
+        currentBoard.backgroundImageUrl ? "bg-slate-950" : `bg-gradient-to-b ${bgGradient}`
+      } text-white transition-colors duration-500`}
     >
       <BoardHeader
         currentBoard={currentBoard}

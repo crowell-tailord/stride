@@ -28,10 +28,14 @@ import {
   FileText,
   Loader2,
   Hash,
+  Eye,
+  EyeOff,
+  Edit2,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { format } from "date-fns";
 import { useIsMounted } from "@/lib/hooks/useIsMounted";
+import MarkdownRenderer from "../ui/MarkdownRenderer";
 
 interface CardModalProps {
   card: Card;
@@ -43,6 +47,8 @@ interface CardModalProps {
   onUpdateCard: (updatedCard: Card) => Promise<void>;
   onDeleteCard: (cardId: string) => Promise<void>;
   onCreateLabel: (name: string, color: LabelColor) => Promise<Label>;
+  onUpdateLabel?: (labelId: string, name: string, color: LabelColor) => Promise<void>;
+  onDeleteLabel?: (labelId: string) => Promise<void>;
 }
 
 const COLOR_CLASSES: Record<string, string> = {
@@ -67,16 +73,20 @@ export default function CardModal({
   onUpdateCard,
   onDeleteCard,
   onCreateLabel,
+  onUpdateLabel,
+  onDeleteLabel,
 }: CardModalProps) {
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description || "");
   const [isEditingDesc, setIsEditingDesc] = useState(false);
+  const [descTab, setDescTab] = useState<"write" | "preview">("write");
   const [dueDate, setDueDate] = useState(
     card.dueDate ? card.dueDate.slice(0, 16) : ""
   );
   const [isCompleted, setIsCompleted] = useState(card.isCompleted);
   const [priority, setPriority] = useState<CardPriority>(card.priority || "medium");
   const [checklist, setChecklist] = useState<ChecklistItem[]>(card.checklist || []);
+  const [hideCompletedChecklist, setHideCompletedChecklist] = useState(false);
   const [newCheckItem, setNewCheckItem] = useState("");
   const [newCommentText, setNewCommentText] = useState("");
   const [comments, setComments] = useState(card.comments || []);
@@ -84,6 +94,9 @@ export default function CardModal({
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [newCustomLabelName, setNewCustomLabelName] = useState("");
   const [newCustomLabelColor, setNewCustomLabelColor] = useState<LabelColor>("indigo");
+  const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
+  const [editingLabelName, setEditingLabelName] = useState("");
+  const [editingLabelColor, setEditingLabelColor] = useState<LabelColor>("indigo");
   const mounted = useIsMounted();
 
   const currentList = lists.find((l) => l.id === card.listId);
@@ -92,6 +105,9 @@ export default function CardModal({
   const totalChecks = checklist.length;
   const completedChecks = checklist.filter((c) => c.isDone).length;
   const progressPercent = totalChecks === 0 ? 0 : Math.round((completedChecks / totalChecks) * 100);
+  const visibleChecklist = hideCompletedChecklist
+    ? checklist.filter((item) => !item.isDone)
+    : checklist;
 
   const [attachments, setAttachments] = useState(card.attachments || []);
   const [coverImageUrl, setCoverImageUrl] = useState(card.coverImageUrl || null);
@@ -251,6 +267,27 @@ export default function CardModal({
     await savePatch({ labelIds: updated });
   };
 
+  const handleDeleteCustomLabel = async (e: React.MouseEvent, lblId: string) => {
+    e.stopPropagation();
+    if (onDeleteLabel) {
+      await onDeleteLabel(lblId);
+    }
+    if (labelIds.includes(lblId)) {
+      const updated = labelIds.filter((id) => id !== lblId);
+      setLabelIds(updated);
+      await savePatch({ labelIds: updated });
+    }
+  };
+
+  const handleSaveEditLabel = async (e: React.FormEvent, lblId: string) => {
+    e.preventDefault();
+    if (!editingLabelName.trim()) return;
+    if (onUpdateLabel) {
+      await onUpdateLabel(lblId, editingLabelName.trim(), editingLabelColor);
+    }
+    setEditingLabelId(null);
+  };
+
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCommentText.trim()) return;
@@ -396,30 +433,69 @@ export default function CardModal({
             {/* Description */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5 text-indigo-400" />
                   Description
                 </h4>
-                {!isEditingDesc && (
+                {!isEditingDesc ? (
                   <button
                     type="button"
-                    onClick={() => setIsEditingDesc(true)}
+                    onClick={() => {
+                      setIsEditingDesc(true);
+                      setDescTab("write");
+                    }}
                     className="text-xs text-indigo-400 hover:text-indigo-300 font-medium"
                   >
                     Edit
                   </button>
+                ) : (
+                  <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setDescTab("write")}
+                      className={`text-[11px] px-2 py-0.5 rounded-md font-medium transition-colors ${
+                        descTab === "write"
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      Write
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDescTab("preview")}
+                      className={`text-[11px] px-2 py-0.5 rounded-md font-medium transition-colors ${
+                        descTab === "preview"
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      Preview
+                    </button>
+                  </div>
                 )}
               </div>
 
               {isEditingDesc ? (
                 <div className="space-y-2">
-                  <textarea
-                    autoFocus
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={5}
-                    placeholder="Add detailed markdown notes, requirements, or links..."
-                    className="w-full p-3 bg-slate-950 border border-indigo-500/60 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none leading-relaxed"
-                  />
+                  {descTab === "write" ? (
+                    <textarea
+                      autoFocus
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={6}
+                      placeholder="Add detailed markdown notes, requirements, or links..."
+                      className="w-full p-3 bg-slate-950 border border-indigo-500/60 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none leading-relaxed font-mono text-xs"
+                    />
+                  ) : (
+                    <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 min-h-[140px]">
+                      {description ? (
+                        <MarkdownRenderer content={description} />
+                      ) : (
+                        <span className="text-slate-500 italic text-xs">Nothing to preview</span>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -442,11 +518,14 @@ export default function CardModal({
                 </div>
               ) : (
                 <div
-                  onClick={() => setIsEditingDesc(true)}
-                  className="p-3.5 rounded-xl bg-slate-950/60 hover:bg-slate-950 border border-slate-800/80 cursor-text text-sm text-slate-200 min-h-[70px] whitespace-pre-wrap leading-relaxed transition-colors"
+                  onClick={() => {
+                    setIsEditingDesc(true);
+                    setDescTab("write");
+                  }}
+                  className="p-3.5 rounded-xl bg-slate-950/60 hover:bg-slate-950 border border-slate-800/80 cursor-text text-sm text-slate-200 min-h-[70px] leading-relaxed transition-colors"
                 >
                   {description ? (
-                    description
+                    <MarkdownRenderer content={description} />
                   ) : (
                     <span className="text-slate-500 italic">
                       Click to add a detailed description...
@@ -527,11 +606,32 @@ export default function CardModal({
                     </span>
                   )}
                 </div>
-                {totalChecks > 0 && (
-                  <span className="text-xs font-bold text-indigo-400">
-                    {progressPercent}%
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  {completedChecks > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setHideCompletedChecklist(!hideCompletedChecklist)}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors flex items-center gap-1"
+                    >
+                      {hideCompletedChecklist ? (
+                        <>
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Show completed ({completedChecks})</span>
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff className="w-3.5 h-3.5" />
+                          <span>Hide completed</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {totalChecks > 0 && (
+                    <span className="text-xs font-bold text-indigo-400">
+                      {progressPercent}%
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Animated Progress Bar */}
@@ -548,7 +648,7 @@ export default function CardModal({
 
               {/* Items List */}
               <div className="space-y-2">
-                {checklist.map((item) => (
+                {visibleChecklist.map((item) => (
                   <div
                     key={item.id}
                     className="group flex items-center justify-between gap-3 p-2 rounded-lg bg-slate-950/40 hover:bg-slate-950 border border-slate-800/60 transition-colors"
@@ -577,6 +677,11 @@ export default function CardModal({
                     </button>
                   </div>
                 ))}
+                {hideCompletedChecklist && completedChecks > 0 && visibleChecklist.length === 0 && (
+                  <div className="p-3 text-xs text-slate-400 italic bg-slate-950/40 rounded-lg border border-slate-800/60 text-center">
+                    All {totalChecks} checklist items completed! ({completedChecks} hidden)
+                  </div>
+                )}
               </div>
 
               {/* Add checklist item */}
@@ -840,8 +945,100 @@ export default function CardModal({
 
               {/* Label selector list */}
               <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {labels.length === 0 && (
+                  <p className="text-xs text-slate-500 italic py-1">No labels created yet.</p>
+                )}
                 {labels.map((lbl) => {
                   const isSelected = labelIds.includes(lbl.id);
+
+                  if (showLabelPicker) {
+                    if (editingLabelId === lbl.id) {
+                      return (
+                        <form
+                          key={lbl.id}
+                          onSubmit={(e) => handleSaveEditLabel(e, lbl.id)}
+                          className="p-2 rounded-lg bg-slate-900 border border-indigo-500/60 space-y-2"
+                        >
+                          <input
+                            type="text"
+                            value={editingLabelName}
+                            onChange={(e) => setEditingLabelName(e.target.value)}
+                            className="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded text-xs text-white focus:outline-none"
+                            autoFocus
+                          />
+                          <div className="flex items-center justify-between gap-1.5">
+                            <select
+                              value={editingLabelColor}
+                              onChange={(e) =>
+                                setEditingLabelColor(e.target.value as LabelColor)
+                              }
+                              className="px-1.5 py-0.5 bg-slate-950 border border-slate-700 rounded text-xs text-white"
+                            >
+                              <option value="indigo">Indigo</option>
+                              <option value="emerald">Emerald</option>
+                              <option value="amber">Amber</option>
+                              <option value="rose">Rose</option>
+                              <option value="purple">Purple</option>
+                              <option value="sky">Sky</option>
+                              <option value="orange">Orange</option>
+                              <option value="zinc">Zinc</option>
+                            </select>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="submit"
+                                disabled={!editingLabelName.trim()}
+                                className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-semibold"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingLabelId(null)}
+                                className="px-2 py-0.5 text-slate-400 hover:text-white text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </form>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={lbl.id}
+                        className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-medium border flex items-center justify-between transition-all ${
+                          COLOR_CLASSES[lbl.color] || COLOR_CLASSES.indigo
+                        }`}
+                      >
+                        <span className="truncate mr-2 font-medium">{lbl.name}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            title="Edit label"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingLabelId(lbl.id);
+                              setEditingLabelName(lbl.name);
+                              setEditingLabelColor(lbl.color);
+                            }}
+                            className="p-1 rounded hover:bg-black/30 text-slate-300 hover:text-white transition-colors"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Remove label"
+                            onClick={(e) => handleDeleteCustomLabel(e, lbl.id)}
+                            className="p-1 rounded hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <button
                       key={lbl.id}

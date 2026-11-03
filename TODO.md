@@ -1,0 +1,4 @@
+- [x] custom board background image (opacity on headers)
+- [x] markdown not working in card descriptions
+- [x] hide/show completed checklist items
+- [x] editing (remove) labels during manage mode

@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { title, description, background } = await request.json();
+    const { title, description, background, backgroundImageUrl } = await request.json();
     if (!title?.trim()) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
     }
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       title: title.trim(),
       description: description?.trim() || "",
       background: background || "ocean",
+      backgroundImageUrl: backgroundImageUrl?.trim() || undefined,
       isStarred: false,
       allowedUserIds: [session.id, "usr_client"], // default allow client access
     });

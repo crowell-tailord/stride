@@ -300,12 +300,59 @@ export default function KanbanBoard({
     throw new Error("Failed to create label");
   };
 
+  const handleUpdateLabel = async (
+    labelId: string,
+    name: string,
+    color: LabelColor
+  ) => {
+    const res = await fetch("/api/labels", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ labelId, name, color }),
+    });
+    if (!res.ok) throw new Error("Failed to update label");
+    const data = await res.json();
+    if (data.label) {
+      setLabels((prev) =>
+        prev.map((l) => (l.id === labelId ? data.label : l))
+      );
+    }
+  };
+
+  const handleDeleteLabel = async (labelId: string) => {
+    const res = await fetch(`/api/labels?labelId=${labelId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Failed to delete label");
+    setLabels((prev) => prev.filter((l) => l.id !== labelId));
+    setCards((prev) =>
+      prev.map((card) =>
+        card.labelIds?.includes(labelId)
+          ? { ...card, labelIds: card.labelIds.filter((id) => id !== labelId) }
+          : card
+      )
+    );
+    if (selectedCard && selectedCard.labelIds?.includes(labelId)) {
+      setSelectedCard((prev) =>
+        prev
+          ? {
+              ...prev,
+              labelIds: prev.labelIds.filter((id) => id !== labelId),
+            }
+          : null
+      );
+    }
+    if (selectedLabelFilter === labelId) {
+      setSelectedLabelFilter(null);
+    }
+  };
+
   const listIds = lists.map((l) => l.id);
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Board Secondary Filter Bar */}
-      <div className="px-6 py-2.5 bg-slate-900/60 backdrop-blur-md border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+      <div className="px-6 py-2.5 bg-slate-950/40 backdrop-blur-md border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
         {/* Search Input */}
         <div className="flex items-center gap-2 flex-1 max-w-sm">
           <div className="relative w-full">
@@ -486,6 +533,8 @@ export default function KanbanBoard({
           onUpdateCard={handleUpdateCard}
           onDeleteCard={handleDeleteCard}
           onCreateLabel={handleCreateLabel}
+          onUpdateLabel={handleUpdateLabel}
+          onDeleteLabel={handleDeleteLabel}
         />
       )}
     </div>

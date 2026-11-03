@@ -22,15 +22,35 @@ export async function uploadFile(
 
   // 1. If Vercel Blob token is present, upload directly to Vercel Blob CDN
   if (process.env.BLOB_READ_WRITE_TOKEN) {
-    const blob = await put(filename, file, {
-      access: "public",
-    });
-    return {
-      url: blob.url,
-      name: filename,
-      size,
-      mimeType,
-    };
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    try {
+      const blob = await put(filename, file, {
+        access: "public",
+        token,
+      });
+      return {
+        url: blob.url,
+        name: filename,
+        size,
+        mimeType,
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("Cannot use public access on a private store")) {
+        // Fallback for private store
+        const blob = await put(filename, file, {
+          access: "private",
+          token,
+        });
+        return {
+          url: blob.url,
+          name: filename,
+          size,
+          mimeType,
+        };
+      }
+      throw err;
+    }
   }
 
   // 2. Local fallback: Save to public/uploads

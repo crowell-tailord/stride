@@ -370,11 +370,22 @@ class JsonStore {
     const db = await this.readDb();
     const index = db.boards.findIndex((b) => b.id === boardId);
     if (index === -1) return null;
-    db.boards[index] = {
+
+    const updated: Board = {
       ...db.boards[index],
       ...patch,
       updatedAt: new Date().toISOString(),
     };
+
+    if (
+      patch.backgroundImageUrl === null ||
+      patch.backgroundImageUrl === "" ||
+      ("backgroundImageUrl" in patch && patch.backgroundImageUrl === undefined)
+    ) {
+      delete updated.backgroundImageUrl;
+    }
+
+    db.boards[index] = updated;
     await this.writeDb(db);
     return db.boards[index];
   }
@@ -543,6 +554,37 @@ class JsonStore {
     db.labels.push(newLabel);
     await this.writeDb(db);
     return newLabel;
+  }
+
+  async updateLabel(
+    labelId: string,
+    patch: Partial<Omit<Label, "id" | "boardId">>
+  ): Promise<Label | null> {
+    const db = await this.readDb();
+    const idx = db.labels.findIndex((l) => l.id === labelId);
+    if (idx < 0) return null;
+    db.labels[idx] = {
+      ...db.labels[idx],
+      ...patch,
+    };
+    await this.writeDb(db);
+    return db.labels[idx];
+  }
+
+  async deleteLabel(labelId: string): Promise<boolean> {
+    const db = await this.readDb();
+    const initLen = db.labels.length;
+    db.labels = db.labels.filter((l) => l.id !== labelId);
+    if (db.labels.length === initLen) return false;
+
+    // Clean up label references from cards
+    db.cards = db.cards.map((c) => ({
+      ...c,
+      labelIds: c.labelIds ? c.labelIds.filter((id) => id !== labelId) : [],
+    }));
+
+    await this.writeDb(db);
+    return true;
   }
 
   // --- Automations ---

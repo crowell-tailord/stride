@@ -13,6 +13,7 @@ import {
   Eye,
   Check,
   Loader2,
+  Upload,
 } from "lucide-react";
 import {
   Board,
@@ -48,6 +49,8 @@ export default function BoardSettingsModal({
   const [title, setTitle] = useState(board.title);
   const [description, setDescription] = useState(board.description || "");
   const [background, setBackground] = useState<BoardTheme>(board.background);
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState(board.backgroundImageUrl || "");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>(
     board.customFields || []
   );
@@ -62,6 +65,48 @@ export default function BoardSettingsModal({
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   if (!isOpen || !mounted) return null;
+
+  const handleUploadBackground = async (file: File) => {
+    if (!file) return;
+    setUploadingImage(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.attachment?.url) {
+        throw new Error(data.error || "Failed to upload image");
+      }
+      setBackgroundImageUrl(data.attachment.url);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveBackground = async () => {
+    setBackgroundImageUrl("");
+    if (board.backgroundImageUrl) {
+      try {
+        const res = await fetch(`/api/boards/${board.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ backgroundImageUrl: null }),
+        });
+        const data = await res.json();
+        if (res.ok && data.board) {
+          onUpdateBoard(data.board);
+        }
+      } catch {
+        // Fallback: local state already cleared
+      }
+    }
+  };
 
   const handleAddField = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,6 +152,7 @@ export default function BoardSettingsModal({
           title: title.trim(),
           description: description.trim(),
           background,
+          backgroundImageUrl: backgroundImageUrl.trim() ? backgroundImageUrl.trim() : null,
           customFields,
         }),
       });
@@ -215,6 +261,62 @@ export default function BoardSettingsModal({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Custom Background Image */}
+          <div className="space-y-2 pt-2">
+            <label className="block text-xs font-semibold text-slate-300">
+              Custom Background Image
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={backgroundImageUrl}
+                onChange={(e) => setBackgroundImageUrl(e.target.value)}
+                placeholder="https://example.com/wallpaper.jpg"
+                className="flex-1 px-3 py-2 bg-slate-950/70 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <label className="shrink-0 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-medium text-slate-200 hover:text-white cursor-pointer transition-colors flex items-center gap-1.5">
+                {uploadingImage ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                )}
+                <span>Upload</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingImage}
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) {
+                      handleUploadBackground(e.target.files[0]);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            {backgroundImageUrl ? (
+              <div className="relative mt-2 rounded-xl overflow-hidden border border-slate-700/80 h-24 bg-slate-950 flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={backgroundImageUrl}
+                  alt="Custom background preview"
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveBackground}
+                  className="absolute top-2 right-2 px-2.5 py-1 bg-slate-950/80 hover:bg-rose-900/90 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors shadow-lg"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Remove Image</span>
+                </button>
+              </div>
+            ) : null}
+            <p className="text-[11px] text-slate-400">
+              Paste an image URL or upload an image file. Board headers and toolbars will show translucent glassmorphism over your background.
+            </p>
           </div>
         </div>
 

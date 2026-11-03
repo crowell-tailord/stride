@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Plus, X, Loader2, Layout } from "lucide-react";
+import { Plus, X, Loader2, Layout, Upload, Trash2 } from "lucide-react";
 import { Board, BoardTheme } from "@/types/stride";
 import { useIsMounted } from "@/lib/hooks/useIsMounted";
 
@@ -29,11 +29,36 @@ export default function NewBoardModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [background, setBackground] = useState<BoardTheme>("ocean");
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mounted = useIsMounted();
 
   if (!isOpen || !mounted) return null;
+
+  const handleUploadBackground = async (file: File) => {
+    if (!file) return;
+    setUploadingImage(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.attachment?.url) {
+        throw new Error(data.error || "Failed to upload image");
+      }
+      setBackgroundImageUrl(data.attachment.url);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +75,7 @@ export default function NewBoardModal({
           title: title.trim(),
           description: description.trim(),
           background,
+          backgroundImageUrl: backgroundImageUrl.trim() || undefined,
         }),
       });
 
@@ -152,6 +178,59 @@ export default function NewBoardModal({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Custom Background Image */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-slate-300">
+              Custom Background Image (Optional)
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={backgroundImageUrl}
+                onChange={(e) => setBackgroundImageUrl(e.target.value)}
+                placeholder="https://example.com/wallpaper.jpg"
+                className="flex-1 px-3 py-2 bg-slate-950/70 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <label className="shrink-0 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-medium text-slate-200 hover:text-white cursor-pointer transition-colors flex items-center gap-1.5">
+                {uploadingImage ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                )}
+                <span>Upload</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingImage}
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) {
+                      handleUploadBackground(e.target.files[0]);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            {backgroundImageUrl && (
+              <div className="relative mt-2 rounded-xl overflow-hidden border border-slate-700/80 h-20 bg-slate-950 flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={backgroundImageUrl}
+                  alt="Background preview"
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => setBackgroundImageUrl("")}
+                  className="absolute top-2 right-2 px-2 py-1 bg-slate-950/80 hover:bg-rose-900/80 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Remove</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">

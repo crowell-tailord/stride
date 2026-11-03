@@ -60,7 +60,7 @@ export default function BoardHeader({
 	};
 
 	return (
-		<header className='relative z-20 px-6 py-3.5 bg-slate-950/90 border-b border-slate-800 backdrop-blur-xl flex items-center justify-between gap-4'>
+		<header className='relative z-20 px-6 py-3.5 bg-slate-950/40 border-b border-white/10 backdrop-blur-md flex items-center justify-between gap-4'>
 			{/* Left: Brand & Board Switcher */}
 			<div className='flex items-center gap-4'>
 				{/* Brand */}
@@ -236,7 +236,7 @@ export default function BoardHeader({
 			/>
 
 			<BoardSettingsModal
-				key={currentBoard.id}
+				key={`${currentBoard.id}_${showSettingsModal}_${currentBoard.backgroundImageUrl || ''}`}
 				isOpen={showSettingsModal}
 				board={currentBoard}
 				onClose={() => setShowSettingsModal(false)}

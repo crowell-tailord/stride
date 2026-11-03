@@ -35,7 +35,7 @@ export interface Board {
   description: string;
   background: BoardTheme;
   isStarred?: boolean;
-  backgroundImageUrl?: string;
+  backgroundImageUrl?: string | null;
   customFields?: CustomFieldDefinition[];
   createdAt: string;
   updatedAt: string;
