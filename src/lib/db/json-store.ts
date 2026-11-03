@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { Redis } from "@upstash/redis";
 import {
   StrideDatabase,
   Board,
@@ -13,6 +14,7 @@ import {
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_FILE = path.join(DATA_DIR, "stride-db.json");
 const TMP_FILE = path.join(DATA_DIR, "stride-db.json.tmp");
+const REDIS_KEY = process.env.STRIDE_REDIS_KEY || "stride:db";
 
 export const DEFAULT_SEED: StrideDatabase = {
   users: [
@@ -221,23 +223,66 @@ export const DEFAULT_SEED: StrideDatabase = {
 class JsonStore {
   private inMemoryCache: StrideDatabase | null = null;
   private writeLock: Promise<void> = Promise.resolve();
+  private redisClient: Redis | null | undefined = undefined;
 
   constructor() {
     this.ensureDatabaseFile();
   }
 
-  private ensureDatabaseFile(): void {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+  private getRedis(): Redis | null {
+    if (this.redisClient !== undefined) {
+      return this.redisClient;
     }
 
-    if (!fs.existsSync(DB_FILE)) {
-      fs.writeFileSync(DB_FILE, JSON.stringify(DEFAULT_SEED, null, 2), "utf-8");
-      this.inMemoryCache = JSON.parse(JSON.stringify(DEFAULT_SEED));
+    const url = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "").trim();
+    const token = (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "").trim();
+
+    if (url && token) {
+      this.redisClient = new Redis({ url, token });
+    } else {
+      this.redisClient = null;
+    }
+    return this.redisClient;
+  }
+
+  private ensureDatabaseFile(): void {
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+
+      if (!fs.existsSync(DB_FILE)) {
+        fs.writeFileSync(DB_FILE, JSON.stringify(DEFAULT_SEED, null, 2), "utf-8");
+        this.inMemoryCache = JSON.parse(JSON.stringify(DEFAULT_SEED));
+      }
+    } catch {
+      // In read-only serverless environments (like Vercel Lambdas), fs operations fail gracefully
     }
   }
 
   private async readDb(): Promise<StrideDatabase> {
+    const redis = this.getRedis();
+    if (redis) {
+      try {
+        const remoteData = await redis.get<StrideDatabase | string>(REDIS_KEY);
+        if (remoteData) {
+          const parsed: StrideDatabase =
+            typeof remoteData === "string" ? JSON.parse(remoteData) : remoteData;
+          if (parsed && Array.isArray(parsed.users)) {
+            this.inMemoryCache = parsed;
+            return parsed;
+          }
+        }
+        // If empty in Redis, seed Redis with DEFAULT_SEED
+        await redis.set(REDIS_KEY, DEFAULT_SEED);
+        this.inMemoryCache = DEFAULT_SEED;
+        return DEFAULT_SEED;
+      } catch (err) {
+        console.error("[Stride DB] Failed to read from Upstash Redis, falling back to local:", err);
+        if (this.inMemoryCache) return this.inMemoryCache;
+      }
+    }
+
     this.ensureDatabaseFile();
     try {
       const data = await fs.promises.readFile(DB_FILE, "utf-8");
@@ -250,14 +295,29 @@ class JsonStore {
   }
 
   private async writeDb(db: StrideDatabase): Promise<void> {
-    // Chain writes sequentially to prevent concurrent file write clashes
+    // Chain writes sequentially to prevent concurrent write clashes
     this.writeLock = this.writeLock.then(async () => {
-      this.ensureDatabaseFile();
-      const content = JSON.stringify(db, null, 2);
-      // Atomic write: write to temp file then rename
-      await fs.promises.writeFile(TMP_FILE, content, "utf-8");
-      await fs.promises.rename(TMP_FILE, DB_FILE);
       this.inMemoryCache = db;
+
+      const redis = this.getRedis();
+      if (redis) {
+        try {
+          await redis.set(REDIS_KEY, db);
+        } catch (err) {
+          console.error("[Stride DB] Failed to save to Upstash Redis:", err);
+        }
+      }
+
+      // Also persist to local file if environment allows writes
+      try {
+        this.ensureDatabaseFile();
+        const content = JSON.stringify(db, null, 2);
+        // Atomic write: write to temp file then rename
+        await fs.promises.writeFile(TMP_FILE, content, "utf-8");
+        await fs.promises.rename(TMP_FILE, DB_FILE);
+      } catch {
+        // Read-only serverless environment (e.g. Vercel)
+      }
     });
     return this.writeLock;
   }

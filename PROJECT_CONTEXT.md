@@ -7,7 +7,7 @@ Stride is a modern, fast, private Kanban project workspace and Trello replacemen
 - **Framework**: Next.js 16 (App Router) + React 19 + TypeScript
 - **Styling**: Tailwind CSS v4 + Lucide Icons + Canvas Confetti
 - **Drag & Drop**: @dnd-kit (Core & Sortable)
-- **Database**: Monorepo JSON File Store (`data/stride-db.json`) with atomic writes & Supabase-ready repository adapter
+- **Database**: Upstash Redis (`@upstash/redis` / Vercel KV) with zero-config local JSON fallback (`data/stride-db.json`)
 - **Storage**: Vercel Blob (`@vercel/blob`) with zero-config local storage fallback
 - **Authentication**: Private session cookies via `jose` and edge middleware access lock
 
