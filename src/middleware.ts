@@ -6,10 +6,15 @@ const SECRET_KEY = new TextEncoder().encode(
   process.env.SESSION_SECRET || "stride-secret-key-change-in-production-2026-fallback"
 );
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/favicon.ico"];
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/favicon.ico", "/robots.txt"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  const withRobotsHeaders = (response: NextResponse) => {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
+  };
 
   // Allow static files and internal Next.js assets
   if (
@@ -17,7 +22,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/static") ||
     PUBLIC_PATHS.some((p) => pathname.startsWith(p))
   ) {
-    return NextResponse.next();
+    return withRobotsHeaders(NextResponse.next());
   }
 
   const token = request.cookies.get("stride_session")?.value;
@@ -27,15 +32,15 @@ export async function middleware(request: NextRequest) {
     if (pathname !== "/") {
       loginUrl.searchParams.set("from", pathname);
     }
-    return NextResponse.redirect(loginUrl);
+    return withRobotsHeaders(NextResponse.redirect(loginUrl));
   }
 
   try {
     await jwtVerify(token, SECRET_KEY);
-    return NextResponse.next();
+    return withRobotsHeaders(NextResponse.next());
   } catch {
     const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+    return withRobotsHeaders(NextResponse.redirect(loginUrl));
   }
 }
 
